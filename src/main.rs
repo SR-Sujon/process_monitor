@@ -1,8 +1,9 @@
 use rand::Rng;
-use serde_json::{Value, from_str};
-use std::{env, fs, time::SystemTime};
+use serde::{Serialize, Serializer};
+use serde_json::{to_writer, Value, from_str, Result as JsonResult};
+use std::{env, fs, time::SystemTime, fs::File};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct ResultValSys {
     value: i32,
     processed_at: SystemTime,
@@ -54,6 +55,8 @@ fn main() {
 
     // Access the "monitors" array from the JSON data
     if let Some(monitors_array) = monitors["monitors"].as_array() {
+        let mut results: Vec<ResultValSys> = Vec::new();
+
         for monitor in monitors_array {
             // Extract relevant fields
             let name = monitor["name"].as_str().unwrap_or("Unnamed Monitor");
@@ -68,6 +71,20 @@ fn main() {
             // Print the monitor details and result
             println!("Monitor: {}, Code: {}", name, code);
             println!("{:?}", result);
+
+            // Collect results for writing to JSON file
+            results.push(result);
+        }
+
+        // Write results to a new JSON file
+        if let Ok(file) = File::create("output.json") {
+            if let Err(err) = to_writer(file, &results) {
+                eprintln!("Failed to write to JSON file: {}", err);
+            } else {
+                println!("Results written to 'output.json'.");
+            }
+        } else {
+            eprintln!("Failed to create or open output.json file.");
         }
     } else {
         eprintln!("Invalid monitors.json format: 'monitors' array not found.");
