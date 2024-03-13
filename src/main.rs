@@ -2,8 +2,7 @@ use rand::Rng;
 use serde_json::{Error, Value};
 use std::env;
 use std::fs;
-use std::time::SystemTime;
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime,UNIX_EPOCH};
 
 #[derive(Debug)]
 struct ResultValSys {
@@ -61,8 +60,8 @@ fn main() {
     println!("Monitors: {}", monitors);
 
     // The value field is an integer representing the result value, and the processed_at field is a SystemTime representing the time the result was processed.
-    let result = ResultValSys::new(42);
-    println!("{:?}", result);
+    //let result = ResultValSys::new(42);
+    //println!("{:?}", result);
 
 
     // Create a random number generator
@@ -88,15 +87,12 @@ fn main() {
             let random_value: i32 = rng.gen_range(1..100);
 
             // Get current time in seconds
-            let processed_at = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Failed to get current time")
-                .as_secs();
+            let processed_at:SystemTime  = SystemTime::now();
             
             // Create an instance of ResultValSys with random values
             let result = ResultValSys {
                 value: random_value,
-                processed_at: SystemTime::now(),
+                processed_at,
             };
 
             // Print the monitor details and result
