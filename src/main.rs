@@ -1,8 +1,6 @@
 use rand::Rng;
-use serde_json::{Error, Value};
-use std::env;
-use std::fs;
-use std::time::{SystemTime,UNIX_EPOCH};
+use serde_json::{Value, from_str};
+use std::{env, fs, time::SystemTime};
 
 #[derive(Debug)]
 struct ResultValSys {
@@ -21,25 +19,16 @@ impl ResultValSys {
 
 fn process_args() -> Result<String, String> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        return Err(
-            "Usage: process_monitor monitorFile /path/to/given/monitors.json/file".to_string(),
-        );
+    if args.len() != 4 || !args[2].starts_with("-monitorFile") {
+        return Err("Usage: process_monitor -monitorFile /path/to/given/monitors.json/file".to_string());
     }
-    let monitor_file_path = &args[1];
-    if !monitor_file_path.starts_with("monitorFile") {
-        return Err("Invalid argument. Usage: process_monitor -monitorFile /path/to/given/monitors.json/file".to_string());
-    }
-    let monitor_file_path = &args[2];
-    Ok(monitor_file_path.to_string())
+    Ok(args[3].clone())
 }
 
 fn read_monitors_file(monitor_file_path: &str) -> Result<Value, String> {
-    let file_content =
-        fs::read_to_string(monitor_file_path).map_err(|e| format!("Failed to read file: {}", e))?;
-    let monitors: Value =
-        serde_json::from_str(&file_content).map_err(|e| format!("Failed to parse JSON: {}", e))?;
-    Ok(monitors)
+    fs::read_to_string(monitor_file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))
+        .and_then(|content| from_str(&content).map_err(|e| format!("Failed to parse JSON: {}", e)))
 }
 
 fn main() {
@@ -50,6 +39,7 @@ fn main() {
             return;
         }
     };
+
     let monitors = match read_monitors_file(&monitor_file_path) {
         Ok(monitors) => monitors,
         Err(err) => {
@@ -59,25 +49,11 @@ fn main() {
     };
     println!("Monitors: {}", monitors);
 
-    // The value field is an integer representing the result value, and the processed_at field is a SystemTime representing the time the result was processed.
-    //let result = ResultValSys::new(42);
-    //println!("{:?}", result);
-
-
-    // Create a random number generator
+    // Creates a random number generator
     let mut rng = rand::thread_rng();
 
-    // Create an instance to hold the JSON data
-    let monitors_data = match read_monitors_file(&monitor_file_path) {
-        Ok(monitors) => monitors,
-        Err(err) => {
-            eprintln!("{}", err);
-            return;
-        }
-    };
-
     // Access the "monitors" array from the JSON data
-    if let Some(monitors_array) = monitors_data["monitors"].as_array() {
+    if let Some(monitors_array) = monitors["monitors"].as_array() {
         for monitor in monitors_array {
             // Extract relevant fields
             let name = monitor["name"].as_str().unwrap_or("Unnamed Monitor");
@@ -86,14 +62,8 @@ fn main() {
             // Generate a random numeric value
             let random_value: i32 = rng.gen_range(1..100);
 
-            // Get current time in seconds
-            let processed_at:SystemTime  = SystemTime::now();
-            
             // Create an instance of ResultValSys with random values
-            let result = ResultValSys {
-                value: random_value,
-                processed_at,
-            };
+            let result = ResultValSys::new(random_value);
 
             // Print the monitor details and result
             println!("Monitor: {}, Code: {}", name, code);
