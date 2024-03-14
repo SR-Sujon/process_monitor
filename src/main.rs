@@ -1,93 +1,112 @@
+use serde::{Deserialize, Serialize};
+use std::{env, fs, time::SystemTime};
+use chrono::{Utc, Duration};
 use rand::Rng;
-use serde::{Serialize, Serializer};
-use serde_json::{to_writer, Value, from_str, Result as JsonResult};
-use std::{env, fs, time::SystemTime, fs::File};
 
-
-#[derive(Debug, Serialize)]
-struct ResultValSys {
+#[derive(Debug, Serialize, Deserialize)]
+struct ResUpdate {
     value: i32,
-    processed_at: SystemTime,
+    processed_at: u64,
 }
 
-impl ResultValSys {
-    fn new(value: i32) -> Self {
-        Self {
-            value,
-            processed_at: SystemTime::now(),
-        }
+#[derive(Debug, Serialize, Deserialize)]
+struct Monitor {
+    name: String,
+    script: Option<String>,
+    result: Option<String>,
+    code: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Monitors {
+    monitors: Vec<Monitor>,
+}
+/* 
+fn process_monitor(monitor_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let json_data = fs::read_to_string(monitor_file)?;
+    let mut monitors: Monitors = serde_json::from_str(&json_data)?;
+
+    for monitor in &mut monitors.monitors {
+        println!("Name: {}", monitor.name);
+        println!("Script: {:?}", monitor.script);
+        println!("Result: {:?}", monitor.result);
+        println!("Code: {}", monitor.code);
+        println!();
+
+        let result = ResUpdate {
+            value: rand::random::<i32>(),
+            processed_at: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_secs(),
+        };
+
+        monitor.result = Some(serde_json::to_string(&result)?);
+    }
+
+    let json_data = serde_json::to_string(&monitors)?;
+    fs::write(monitor_file, json_data)?;
+
+    Ok(())
+}
+*/
+
+fn process_monitor(monitor_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let json_data = fs::read_to_string(monitor_file)?;
+    let mut monitors: Monitors = serde_json::from_str(&json_data)?;
+
+    update_monitors(&mut monitors);
+    store_monitors(&monitors, get_timestamp());
+
+    let json_data = serde_json::to_string(&monitors)?;
+    fs::write(monitor_file, json_data)?;
+
+    Ok(())
+
+}
+
+
+
+fn update_monitors(monitors: &mut Monitors) {
+    for monitor in &mut monitors.monitors {
+        let result = ResUpdate {
+            value: rand::thread_rng().gen_range(0..100),
+            processed_at: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_secs(),
+        };
+
+        monitor.result = Some(serde_json::to_string(&result).unwrap());
     }
 }
 
-fn process_args() -> Result<String, String> {
+fn store_monitors(monitors: &Monitors, timestamp: String) -> Result<(), Box<dyn std::error::Error>> {
+    let file_name = format!("{}_{}.json", timestamp, "monitors");
+    let file_path = format!("./{}", file_name);
+    let json_data = serde_json::to_string(monitors)?;
+    let fpath = file_path.clone();
+    fs::write(file_path, json_data)?;
+    println!("Stored monitors in: {}", fpath);
+
+    Ok(())
+}
+
+fn get_timestamp() -> String {
+    let now = Utc::now();
+    format!("{}", now.format("%Y-%m-%d_%H-%M"))
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 4 || !args[2].starts_with("-monitorFile") {
-        return Err("Usage: process_monitor -monitorFile /path/to/given/monitors.json/file".to_string());
+    println!("{}",args.len());
+    if args.len() != 4 {
+        eprintln!("Usage: process_monitor -monitorFile /path/to/given/monitors.json/file");
+std::process::exit(1);
     }
-    Ok(args[3].clone())
-}
 
-fn read_monitors_file(monitor_file_path: &str) -> Result<Value, String> {
-    fs::read_to_string(monitor_file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))
-        .and_then(|content| from_str(&content).map_err(|e| format!("Failed to parse JSON: {}", e)))
-}
+    let monitor_file = &args[3];
+    process_monitor(monitor_file)?;
 
-fn main() {
-    let monitor_file_path = match process_args() {
-        Ok(path) => path,
-        Err(err) => {
-            eprintln!("{}", err);
-            return;
-        }
-    };
-
-    let monitors = match read_monitors_file(&monitor_file_path) {
-        Ok(monitors) => monitors,
-        Err(err) => {
-            eprintln!("{}", err);
-            return;
-        }
-    };
-    println!("Monitors: {}", monitors);
-
-    // Creates a random number generator
-    let mut rng = rand::thread_rng();
-
-    // Access the "monitors" array from the JSON data
-    if let Some(monitors_array) = monitors["monitors"].as_array() {
-        let mut results: Vec<ResultValSys> = Vec::new();
-
-        for monitor in monitors_array {
-            // Extract relevant fields
-            let name = monitor["name"].as_str().unwrap_or("Unnamed Monitor");
-            let code = monitor["code"].as_str().unwrap_or("No Code");
-
-            // Generate a random numeric value
-            let random_value: i32 = rng.gen_range(1..100);
-
-            // Create an instance of ResultValSys with random values
-            let result = ResultValSys::new(random_value);
-
-            // Print the monitor details and result
-            println!("Monitor: {}, Code: {}", name, code);
-            println!("{:?}", result);
-
-            // Collect results for writing to JSON file
-            results.push(result);
-        }
-
-        // Write results to a new JSON file
-        if let Ok(file) = File::create("output.json") {
-            if let Err(err) = to_writer(file, &results) {
-                eprintln!("Failed to write to JSON file: {}", err);
-            } else {
-                println!("Results written to 'output.json'.");
-            }
-        } else {
-            eprintln!("Failed to create or open output.json file.");
-        }
-    } else {
-        eprintln!("Invalid monitors.json format: 'monitors' array not found.");
-    }
+    Ok(())
 }
