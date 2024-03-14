@@ -21,25 +21,44 @@ struct Monitor {
 struct Monitors {
     monitors: Vec<Monitor>,
 }
+/* 
+fn process_monitor(monitor_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let json_data = fs::read_to_string(monitor_file)?;
+    let mut monitors: Monitors = serde_json::from_str(&json_data)?;
+
+    for monitor in &mut monitors.monitors {
+        println!("Name: {}", monitor.name);
+        println!("Script: {:?}", monitor.script);
+        println!("Result: {:?}", monitor.result);
+        println!("Code: {}", monitor.code);
+        println!();
+
+        let result = ResUpdate {
+            value: rand::random::<i32>(),
+            processed_at: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .expect("Time went backwards")
+                .as_secs(),
+        };
+
+        monitor.result = Some(serde_json::to_string(&result)?);
+    }
+
+    let json_data = serde_json::to_string(&monitors)?;
+    fs::write(monitor_file, json_data)?;
+
+    Ok(())
+}
+*/
 
 fn process_monitor(monitor_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let json_data = match fs::read_to_string(monitor_file) {
-        Ok(data) => data,
-        Err(e) => return Err(Box::new(e)),
-    };
-
-    let mut monitors: Monitors = match serde_json::from_str(&json_data) {
-        Ok(data) => data,
-        Err(e) => return Err(Box::new(e)),
-    };
+    let json_data = fs::read_to_string(monitor_file)?;
+    let mut monitors: Monitors = serde_json::from_str(&json_data)?;
 
     update_monitors(&mut monitors);
     store_monitors(&monitors, get_timestamp());
 
-    let json_data = match serde_json::to_string(&monitors) {
-        Ok(data) => data,
-        Err(e) => return Err(Box::new(e)),
-    };
+    let json_data = serde_json::to_string(&monitors)?;
     fs::write(monitor_file, json_data)?;
 
     Ok(())
@@ -65,10 +84,7 @@ fn update_monitors(monitors: &mut Monitors) {
 fn store_monitors(monitors: &Monitors, timestamp: String) -> Result<(), Box<dyn std::error::Error>> {
     let file_name = format!("{}_{}.json", timestamp, "monitors");
     let file_path = format!("./{}", file_name);
-    let json_data = match serde_json::to_string(monitors) {
-        Ok(data) => data,
-        Err(e) => return Err(Box::new(e)),
-    };
+    let json_data = serde_json::to_string(monitors)?;
     let fpath = file_path.clone();
     fs::write(file_path, json_data)?;
     println!("Stored monitors in: {}", fpath);
