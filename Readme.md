@@ -3,8 +3,41 @@ This is a simple monitoring system written in Rust. It reads a JSON file contain
 // Copyright (c) 2024
 
 
-## Usage
+## Overview
 
+### Data Structures:
+* ResUpdate: This structure represents an update to the monitoring data. It consists of two fields:
+
+2. value: An integer representing the value of the update.
+3. processed_at: A Unix timestamp indicating when the update was processed.
+* Monitor: This structure represents a monitoring entity. It contains the following fields:
+
+1. name: A string representing the name of the monitor.
+2. script: An optional string containing the script associated with the monitor.
+3. result: An optional string representing the result of the monitor.
+4. code: A string containing the code associated with the monitor.
+* Monitors: This structure holds a collection of Monitor instances in a vector.
+
+### Processing:
+1. process_monitor(): This function is responsible for reading monitoring data from a JSON file specified via a command-line argument. It then spawns two threads:
+- An update thread that periodically updates the monitoring data.
+- A store thread that periodically stores the monitoring data to disk.
+After the threads complete their tasks, the updated monitoring data is serialized back to JSON and written to the input file.
+
+### Updating Monitors
+* update_monitors(): This function generates random update values for each monitor and updates the result field with the generated value and timestamp. It is called periodically by the update thread.
+
+### Storing Monitors:
+- store_monitors(): This function serializes the monitoring data to JSON and writes it to a new file in a logs directory. The filename includes a timestamp indicating when the data was stored. It is called periodically by the store thread.
+
+### Main Function:
+- main(): This function serves as the entry point of the program. It parses command-line arguments to determine the input file path. Then it runs the process_monitor function in a loop for 1 minute, with a 5-minute sleep between iterations.
+
+### Output
+- Throughout execution, the program prints messages indicating when it invokes the process_monitor function, updates to monitors, and storage of monitors. These messages provide feedback to the user about the program's progress and activities.
+
+
+## Usage
 To use the program, run the following command in your terminal:
 
 ```bash
@@ -14,23 +47,17 @@ Replace /path/to/given/monitors.json/file with the actual path to your monitors 
 ## Command Line arguments
 -monitorFile: Specifies the path to the monitors JSON file.
 
-## Structure
-The code is structured as follows:
-
--ResultValSys struct: Represents the result of a monitor with a randomly generated value and the timestamp of when it was processed.
-
--process_args function: Processes command-line arguments and returns the path to the monitor file or an error message.
-
--read_monitors_file function: Reads the content of the monitor file, parses it as JSON, and returns the parsed data or an error message.
-
--main function: The main entry point of the program. It orchestrates the processing of command-line arguments, reading the monitor file, generating random values, and printing the results.
 
 ## Dependencies:
 
 The program relies on the following external libraries:
 
-rand: Used for generating random numbers.
-serde_json: Used for parsing JSON data.
+serde_json = "1.0"
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+chrono = "0.4"
+async-std = "1.10.0"
 
 ## How to Build
 Ensure that you have Rust installed on your system. Then, navigate to the project directory and run:
@@ -41,7 +68,7 @@ This will compile the program.
 
 ## How to Run
 ```bash
-$ cargo run -- -monitorFile /path/to/given/monitors.json/file
+cargo run process_monitor -monitorFile ./assets/monitors.json
 ```
 ## Example Output
 The program will print details for each monitor, including its name, code, and the randomly generated result, along with the timestamp when it was processed.
@@ -49,44 +76,6 @@ The program will print details for each monitor, including its name, code, and t
 ## Error Handling
 The program provides informative error messages in case of incorrect command-line arguments or issues with reading/parsing the monitor file.
 
-## Functions
-### fn update_monitors(monitors: &mut Monitors)
-This function updates the result field of each monitor in the monitors slice with a random value and the current timestamp.
-
-1. Iterate through each monitor in the monitors slice.
-2. Generate a random value between 0 and 99.
-3. Get the current timestamp as a Unix 4. timestamp in seconds.
-5. Create a ResUpdate struct with the random value and the timestamp.
-6. Serialize the ResUpdate struct to a JSON string and store it in the result field of the monitor.
-
-### fn store_monitors(monitors: &Monitors, timestamp: String) -> Result<(), Box<dyn std::error::Error>>
-This function saves the updated monitors to a new JSON file with a timestamp in the filename.
-
-1. Create a filename with the current timestamp and the string "monitors".
-2. Serialize the monitors struct to a JSON string.
-3. Write the JSON string to a new file with the created filename.
-4. Print the path of the saved file to the console.
-
-### fn get_timestamp() -> String
-This function returns the current timestamp as a string in the format "YYYY-MM-DD_HH-MM".
-
-1. Get the current time in UTC.
-2. Format the time as a string with the format "%Y-%m-%d_%H-%M".
-3. Return the formatted string.
-
-
-### fn main() -> Result<(), Box<dyn std::error::Error>>
-
-This is the main function that runs the monitoring system.
-
-1. Get the command line arguments and check if the correct number of arguments are provided.
-2. If the correct number of arguments are not provided, print the usage message and exit with a non-zero status code.
-3. Get the path to the monitors JSON file from the command line arguments.
-4. Read the monitors JSON file and deserialize it to aMonitors struct.
-5. Call the update_monitors function to update the monitors.
-6. Call the store_monitors function to save the updated monitors to a new JSON file.
-7. Serialize the monitors struct to a JSON string and overwrite the original monitors JSON file.
-8. Return a successful result.
 
 ## Documentation
 To use this monitoring system, you need to provide a JSON file with a list of monitors. The JSON file should look like this:
@@ -111,7 +100,7 @@ To use this monitoring system, you need to provide a JSON file with a list of mo
 
 You can then run the monitoring system with the following command:
 ```bash
-cargo run -- -monitorFile /path/to/monitors.json
+cargo run process_monitor -monitorFile ./assets/monitors.json
 ```
 
 The monitoring system will update the result field of each monitor with a random value and the current timestamp, and save the updated monitors to a new JSON file with a timestamp in the filename. The original monitors JSON file will also be overwritten with the updated monitors.
