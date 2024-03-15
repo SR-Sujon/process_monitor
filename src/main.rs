@@ -43,16 +43,16 @@ fn process_monitor(monitor_file: &str) -> Result<(), Box<dyn std::error::Error>>
 
     let update_thread = thread::spawn(move || {
         for _ in 0..10 {
-            update_monitors(&update_monitors_arc);
             println!("update_monitors_invoked");
+            update_monitors(&update_monitors_arc);
             thread::sleep(Duration::from_secs(30));
         }
     });
-
+    
     let store_thread = thread::spawn(move || {
         for _ in 0..5 {
-            store_monitors(&store_monitors_arc, get_timestamp());
             println!("store_monitors_invoked");
+            store_monitors(&store_monitors_arc, get_timestamp());
             thread::sleep(Duration::from_secs(60));
         }
     });
@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let monitor_file = &args[3];
-    // Run the loop for 1 minute
+    // Run the loop for 5 minute
     for _ in 0..1 {
         println!("process_monitor_invoked...");
         process_monitor(monitor_file)?;
